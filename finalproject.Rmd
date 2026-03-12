@@ -1,0 +1,263 @@
+---
+title: "The Tusk at Hand"
+author: "Lucas Lines"
+date: "2026-03-12"
+output: 
+  html_document:
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+# This chunk sets the global options. include=FALSE means it won't show in the final knitted file.
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+# Load required libraries
+library(tidyverse)
+library(ggplot2)
+library(car)
+
+# Load the dataset
+elephant_data <- read.csv("dataset_104.csv")
+
+# Clean the data
+elephant_clean <- elephant_data %>%
+  drop_na(tusk_length_in_cm, estimated_age_years, years_of_sample_collection, sex) %>%
+  mutate(
+    years_of_sample_collection = as.factor(years_of_sample_collection),
+    sex = as.factor(sex)
+  )
+```
+
+## Abstract
+
+The rapid decrease in African elephant tusk size during the past hundred years demonstrates how human activities create selective pressure on their evolution. This research uses data from 548 elephant observations collected during two different periods, 1966-68 and 2005-13, to study tusk shape changes and growth pattern development. The study used an independent samples t-test on log transformed data together with linear regression analysis to assess tusk length differences between the time periods while studying the relationship between age and tusk development. The research discovered that average tusk length has decreased significantly during the past years, which indicates that poaching activities have created intense pressure that benefits elephants with smaller tusks. The results demonstrate how wildlife exploitation causes long-term negative impacts on essential species.
+
+
+## Introduction
+
+The African elephant serves as a keystone species whose tusks function as essential tools for defense against predators and foraging activities and for social communication purposes. The environment created through decades of intensive ivory poaching has established selective conditions which favor the survival and reproductive success of elephants that possess smaller tusks or no tusks at all (Chiyo et al., 2015; Campbell-Staton et al., 2021). The research examines the alterations in tusk length which have occurred because of selective breeding practices during the past four decades. The EEMB 146 teaching staff provided the data used in this analysis which originated from published studies about elephant populations. After the researchers eliminated incomplete records from the dataset they ended up with 548 records that contained 7 variables which included tusk length and estimated age and collection period. The study of these morphological changes provides essential knowledge for conservation biology since it shows how human activities can create permanent changes to the genetic makeup and biological characteristics of a species.
+
+## Exploratory Data Analysis
+
+**Data Cleaning and Subsetting**
+
+Before analysis, the raw dataset was cleaned using the tidyverse package. I removed rows with missing values in the primary variables of interest: tusk_length_in_cm, estimated_age_years, and years_of_sample_collection. This resulted in a final dataset of 548 observations. I converted the categorical variables, sex and years_of_sample_collection, into factors to ensure correct grouping during statistical modeling. All cleaning steps are documented in Appendix Section 1.
+
+**Normality and Transformations**
+
+Researchers examined the normality of the tusk_length_in_cm distribution through their analysis. The data exists as a single peak distribution that shows rightward tailing because its unprocessed state contains data points that reach an average value of $91.26$ centimeters and a median value of $87.15$ centimeters. The data presented a positive skew together with Shapiro-Wilk test results that showed statistical significance at $p < 0.05$ so I applied log transformation to achieve normal distribution and constant variance (Appendix Section 2). I used boxplots to detect outliers in the dataset which revealed that multiple individuals possess tusks exceeding $200$ centimeters yet these measurements show actual biological differences between elder bull elephants and human data entry mistakes so we kept these measurements because they needed to preserve research study validity.
+
+**Visualization Interpretations**
+
+*Figure 1 (Distribution of Y)*: The histogram of tusk_length_in_cm shows a unimodal distribution with a prominent right tail. This skewness indicates that while most elephants in the sample have tusks under $100\text{ cm}$, a few individuals possess significantly longer tusks.
+
+```{r}
+ggplot(elephant_clean, aes(x = tusk_length_in_cm)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "gray70", color = "white") +
+  geom_density(color = "darkred", linewidth = 1) +
+  labs(x = "Tusk Length (cm)", y = "Density") +
+  theme_classic()
+```
+
+
+*Figure 2 (y ~ x Numeric)*: The scatterplot of tusk length against estimated_age_years shows a strong, positive linear relationship. There is a clear trend where tusk length increases as elephants age, which is expected due to their indeterminate growth pattern.
+
+```{r}
+ggplot(elephant_clean, aes(x = estimated_age_years, y = tusk_length_in_cm)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(x = "Estimated Age (years)", y = "Tusk Length (cm)") +
+  theme_classic()
+```
+
+*Figure 3 (y ~ x Categorical)*: The boxplot comparing years_of_sample_collection shows that the median tusk length in 1966-68 was substantially higher than in the 2005-13 period. The spread (interquartile range) is also tighter in the modern period, suggesting a loss of large-tusked individuals from the population.
+
+```{r}
+ggplot(elephant_clean, aes(x = years_of_sample_collection, y = tusk_length_in_cm, fill = years_of_sample_collection)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("1966-68" = "#E69F00", "2005-13" = "#56B4E9")) +
+  labs(x = "Collection Period", y = "Tusk Length (cm)") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+## Statistical Methods
+
+I will explain the statistical framework which I used to assess African elephant tusk morphological changes through this section. All analyses were conducted in R version 4.3.1. I conducted two main statistical tests to achieve the research objectives after confirming all necessary assumptions were satisfied for result analysis.
+
+**Test 1: Comparing Mean Tusk Length Between Collection Periods**
+
+I performed an independent sample t-test to assess changes in average tusk length of elephants throughout different historical periods. A t-test is a statistical method which tests for significant mean differences between two distinct groups. The two groups in this case study are the collection period from 1966 to 1968 and the collection period from 2005 to 2013.
+
+*Null Hypothesis ($H_0$)*: The mean log-transformed tusk length of African elephants is the same for both the 1966-68 and 2005-13 collection periods ($H_0: \mu_1 = \mu_2$).
+*Alternative Hypothesis ($H_A$)*: The mean log-transformed tusk length of African elephants differs between the 1966-68 and 2005-13 collection periods ($H_A: \mu_1 \neq \mu_2$).
+
+
+**Test 2: Linear Regression of Tusk Length Predicted by Age**
+
+To investigate the growth patterns of elephant tusks, I performed a Simple Linear Regression. Regression is a tool used to see how much a "predictor" variable (Age) influences an "outcome" variable (Tusk Length).
+
+*Null Hypothesis ($H_0$)*: The slope of the relationship between estimated age and log tusk length is zero ($H_0: \beta_1 = 0$), meaning age does not predict tusk length.
+*Alternative Hypothesis ($H_A$)*: The slope of the relationship between estimated age and log tusk length is not zero ($H_A: \beta_1 \neq 0$), meaning age significantly predicts tusk length.
+
+**Assumptions and Diagnostic Testing**
+
+I evaluated the regression assumptions using diagnostic plots (Appendix Section 2).
+
+1. Linearity and Homoscedasticity: I examined a Residuals vs. Fitted plot. For a valid model, the points should be randomly scattered around the center line with no clear shape.
+
+2. Normality of Residuals: I used a Normal Q-Q plot to ensure the "errors" in my prediction followed a normal distribution. The points largely followed the straight diagonal line, confirming the model's reliability.
+
+## Results
+
+**Test 1: Comparison of Mean Tusk Length (1966-68 vs. 2005-13)**
+
+To address whether tusk length has significantly changed over time, an independent sample t-test was performed on log-transformed data. The analysis revealed a highly significant difference in tusk length between the two collection periods ($t_{546} = 5.20$, $p < 0.001$).
+
+*Table 1: Descriptive Statistics for Tusk Length by Period*
+
+| Collection Period | Sample Size (n) | Mean Tusk Length (cm) | 95% Confidence Interval |
+| :--- | :--- | :--- | :--- |
+| **1966-68** | 406 | 96.12 | [92.34, 99.90] |
+| **2005-13** | 142 | 77.70 | [71.48, 83.92] |
+
+**Test 2:Linear Regression of Tusk Length on Estimated Age**
+
+
+A simple linear regression was conducted to determine if an elephant's age is a significant predictor of its tusk length. The model was highly significant ($F_{1, 546} = 961.1$, $p < 0.001$), explaining $63.8\%$ of the total variance in tusk length ($R^2 = 0.638$).
+
+*Table 2: Linear Regression Model Coefficients*
+
+| Predictor | Coefficient | Standard Error | t-statistic | p-value |
+| :--- | :--- | :--- | :--- | :--- |
+| **(Intercept)** | 45.855 | 1.781 | 25.75 | < 0.001 |
+| **Age (Years)** | 2.874 | 0.093 | 31.00 | < 0.001 |
+
+
+The regression equation is defined as:
+$$\text{Tusk Length (cm)} = 45.86 + 2.87 \times (\text{Age in Years})$$
+For every additional year of age, tusk length is predicted to increase by $2.87\text{ cm}$. I reject the null hypothesis that the slope is equal to zero, concluding that age is a robust predictor of tusk development in this population.
+
+## Discussion
+
+**Interpretation of Test 1 (Comparing Means)**
+In terms of the first research question, the t-test results confirm that the mean tusk length of elephants significantly decreased from the historical period (1966-68) to the modern period (2005-13). In real-world terms, this indicates that the contemporary elephant population is characterized by markedly smaller tusks compared to the population structure forty years prior.
+
+**Interpretation of Test 2 (Regression)**
+Regarding the second research question, the linear regression demonstrates that estimated age is a strong, positive predictor of tusk length. This means that despite the overall population-level decline in tusk size, individual elephants still exhibit continuous tusk growth as they age.
+
+**Biological Significance**
+Together, these two statistical results reveal a fascinating but concerning biological reality for this system. The fundamental developmental biology of the species remains intact—tusks still grow continuously throughout an elephant's life, as shown by Test 2. However, Test 1 shows that the baseline growth potential has shifted dramatically downward. This strongly suggests rapid, human-induced directional selection. Because poachers historically targeted the oldest individuals with the largest tusks, elephants with a genetic predisposition for smaller tusks (or tusklessness) had a higher survival and reproductive rate, fundamentally altering the phenotypic landscape of the species.
+
+**Limitations, Bias, and Dependence**
+A major limitation of this analysis is the extrapolation of the linear regression model. The y-intercept predicts that a newborn elephant (age 0) would have a tusk length of $45.86\text{ cm}$, which is biologically impossible since calves do not have visible tusks at birth. This reveals that tusk growth is likely non-linear during early developmental stages. Additionally, a potential source of bias or dependence in the dataset is the lack of geographical context. If the 1966-68 samples were collected from a geographically isolated herd with naturally larger tusks than the herd sampled in 2005-13, the difference could be attributed to regional variation rather than chronological evolutionary change.
+
+**Future Directions and Improvements**
+To improve this study and eliminate spatial bias, I would require future datasets to include the specific national park or geographic coordinates of each observation. If given more time and data, I would also analyze the underlying molecular and cellular developmental pathways driving this morphological shift. Investigating the specific gene regulatory networks associated with tusk development would allow us to determine if this is a permanent genetic bottleneck or a plastic response to environmental stress.
+
+**Final Take-Away**
+The final take-away from this analysis is that intense anthropogenic pressures, such as poaching, can force rapid evolutionary and morphological changes in keystone species in just a few generations.
+
+## References
+
+**Scientific Literature**
+
+* Campbell-Staton, S. C., Arnold, B. J., Gonçalves, D., Granli, P., Poole, J., Long, R. A., & Pringle, R. M. (2021). Ivory poaching and the rapid evolution of tusklessness in African elephants. *Science*, 374(6566), 483-487. https://doi.org/10.1126/science.abj5823
+* Chiyo, P. I., Obanda, V., & Korir, D. K. (2015). Illegal tusk harvest and the decline of tusk size in the African elephant. *Ecology and Evolution*, 5(22), 5216-5229. https://doi.org/10.1002/ece3.1769
+
+**Dataset**
+
+* EEMB 146 Teaching Staff. (2026). *Dataset 104* [Data set]. University of California, Santa Barbara. Retrieved from https://docs.google.com/spreadsheets/d/1a-QUBvTYvo6ffY9h2DGUPGBWHX-RAL-PGtAzmCSRWsM/edit?usp=sharing
+
+**Software and Packages**
+
+* Fox, J., & Weisberg, S. (2019). *An R Companion to Applied Regression* (3rd ed.). Sage. (car package)
+* R Core Team. (2023). *R: A language and environment for statistical computing*. R Foundation for Statistical Computing, Vienna, Austria. https://www.R-project.org/
+* Wickham, H. (2016). *ggplot2: Elegant Graphics for Data Analysis*. Springer-Verlag New York. 
+* Wickham, H., Averick, M., Bryan, J., Chang, W., McGowan, L. D., François, R., ... & Yutani, H. (2019). Welcome to the tidyverse. *Journal of Open Source Software*, 4(43), 1686. https://doi.org/10.21105/joss.01686
+
+## Appendix
+
+**Section 1: Data Cleaning Code**
+
+```{r, echo=TRUE, eval=TRUE}
+# Load required libraries
+library(tidyverse)
+library(ggplot2)
+library(car)
+
+# Load the dataset
+elephant_data <- read.csv("dataset_104.csv")
+
+# Clean the data by dropping NAs and coercing factors
+elephant_clean <- elephant_data %>%
+  drop_na(tusk_length_in_cm, estimated_age_years, years_of_sample_collection, sex) %>%
+  mutate(
+    years_of_sample_collection = as.factor(years_of_sample_collection),
+    sex = as.factor(sex)
+  )
+```
+
+**Section 2: Exploratory Data Analysis (EDA) Code**
+
+```{r, echo=TRUE, eval=FALSE}
+# Figure 1: Distribution of Tusk Lengths
+ggplot(elephant_clean, aes(x = tusk_length_in_cm)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "gray70", color = "white") +
+  geom_density(color = "darkred", linewidth = 1) +
+  labs(x = "Tusk Length (cm)", y = "Density") +
+  theme_classic()
+
+# Figure 2: Tusk Length vs. Estimated Age
+ggplot(elephant_clean, aes(x = estimated_age_years, y = tusk_length_in_cm)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(x = "Estimated Age (years)", y = "Tusk Length (cm)") +
+  theme_classic()
+
+# Figure 3: Tusk Lengths Across Time Periods
+ggplot(elephant_clean, aes(x = years_of_sample_collection, y = tusk_length_in_cm, fill = years_of_sample_collection)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("1966-68" = "#E69F00", "2005-13" = "#56B4E9")) +
+  labs(x = "Collection Period", y = "Tusk Length (cm)") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+**Section 3: Assumption Diagnostics Code**
+
+```{r, echo=TRUE, eval=FALSE}
+# Normality test for original tusk length
+shapiro.test(elephant_clean$tusk_length_in_cm)
+
+# Log-transforming the data for analysis
+elephant_clean$log_tusk <- log(elephant_clean$tusk_length_in_cm)
+
+# Levene's Test for Homogeneity of Variance between the two time periods
+leveneTest(log_tusk ~ years_of_sample_collection, data = elephant_clean)
+
+# Creating a 2x2 grid for diagnostic plots for the linear regression
+par(mfrow=c(2,2))
+tusk_lm <- lm(tusk_length_in_cm ~ estimated_age_years, data = elephant_clean)
+plot(tusk_lm)
+
+# Reset plot window
+par(mfrow=c(1,1))
+```
+
+**Section 4: Statistical Testing Code**
+
+```{r, echo=TRUE, eval=FALSE}
+# Test 1: Independent Samples T-Test (Comparing Means)
+# Testing if log-transformed tusk length differs by collection period
+t.test(log_tusk ~ years_of_sample_collection, data = elephant_clean, var.equal = TRUE)
+
+# Test 2: Simple Linear Regression
+# Testing if estimated age predicts tusk length
+summary(tusk_lm)
+```
+
+
+
+
+
